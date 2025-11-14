@@ -263,6 +263,15 @@
             <div class="info-box">
                 <strong>📍 Operatör:</strong> Tüm adresleri ekleyin, sonra "Paylaş" butonuna basın.
             </div>
+            
+            <!-- Lokal dosya uyarısı -->
+            <div id="local-file-warning" style="display: none;" class="warning-box">
+                <strong>⚠️ UYARI: Lokal Dosya Açtınız!</strong>
+                <p style="margin: 10px 0 0 0; font-size: 0.9em;">
+                    Bu dosyayı bilgisayarınızdan açıyorsunuz. Paylaşım linkleri çalışmayacaktır!<br>
+                    <strong>Çözüm:</strong> <a href="https://xati7x.github.io/rota-planlayici/" style="color: #ff9800; font-weight: 600;">Bu linki kullanın →</a>
+                </p>
+            </div>
 
             <div class="input-group">
                 <input type="text" id="address-input" placeholder="Adres girin (örn: Kosifler, Antalya)">
@@ -301,6 +310,12 @@
 
         // Sayfa yüklendiğinde
         window.addEventListener('load', () => {
+            // Lokal dosya kontrolü
+            if (window.location.protocol === 'file:') {
+                document.getElementById('local-file-warning').style.display = 'block';
+                console.warn('⚠️ LOKAL DOSYA TESPİT EDİLDİ! GitHub Pages linkini kullanın: https://xati7x.github.io/rota-planlayici/');
+            }
+            
             // URL'den adres var mı kontrol et
             const urlParams = new URLSearchParams(window.location.search);
             const addressParam = urlParams.get('a');
@@ -481,8 +496,20 @@
 
             try {
                 const encoded = base64EncodeUnicode(JSON.stringify(addresses));
-                const currentUrl = window.location.href.split('?')[0];
-                const shareUrl = `${currentUrl}?a=${encoded}`;
+                
+                // GitHub Pages URL'i (sabit)
+                const GITHUB_URL = 'https://xati7x.github.io/rota-planlayici/';
+                
+                // Eğer localhost veya file:// ise GitHub URL kullan, değilse mevcut URL
+                let baseUrl;
+                if (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    baseUrl = GITHUB_URL;
+                    console.log('⚠️ Lokal dosya tespit edildi, GitHub URL kullanılıyor:', GITHUB_URL);
+                } else {
+                    baseUrl = window.location.origin + window.location.pathname;
+                }
+                
+                const shareUrl = `${baseUrl}?a=${encoded}`;
                 
                 console.log('Paylaşım linki oluşturuldu:', shareUrl);
                 console.log('Adresler:', addresses);
@@ -491,6 +518,16 @@
                 shareSection.style.display = 'block';
                 
                 let html = '<h3>📱 Kuryeye Gönder</h3>';
+                
+                // Lokal dosya uyarısı
+                if (window.location.protocol === 'file:') {
+                    html += '<div class="warning-box" style="margin-bottom: 15px;">';
+                    html += '<p style="margin: 0;"><strong>⚠️ DİKKAT!</strong></p>';
+                    html += '<p style="margin: 5px 0 0 0; font-size: 0.9em;">Lokal dosyayı açıyorsunuz! Bunun yerine şu linki kullanın:<br>';
+                    html += '<a href="https://xati7x.github.io/rota-planlayici/" target="_blank" style="color: #ff9800; font-weight: 600;">https://xati7x.github.io/rota-planlayici/</a></p>';
+                    html += '</div>';
+                }
+                
                 html += '<p><strong>Yöntem 1: Link Kopyala</strong></p>';
                 html += `<input type="text" class="share-url" value="${shareUrl}" readonly onclick="this.select()">`;
                 html += `<button class="btn-share" onclick="copyShareLink('${shareUrl}')">📋 Linki Kopyala</button>`;
