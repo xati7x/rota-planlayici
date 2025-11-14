@@ -620,36 +620,60 @@
 
         // Kullanıcı konumundan optimize et
         function optimizeFromUserLocation() {
-            console.log('Kullanıcı konumundan optimizasyon başlıyor...');
+            console.log('========== KONUM OPTİMİZASYONU BAŞLIYOR ==========');
             console.log('Kullanıcı konumu:', userLocation);
+            console.log('Adresler:', addresses);
             
             const distanceService = new google.maps.DistanceMatrixService();
             
+            const destinations = addresses.map(addr => addr);
+            console.log('Hedef adresler:', destinations);
+            
             distanceService.getDistanceMatrix({
-                origins: [userLocation],
-                destinations: addresses,
+                origins: [new google.maps.LatLng(userLocation.lat, userLocation.lng)],
+                destinations: destinations,
                 travelMode: google.maps.TravelMode.DRIVING,
-                unitSystem: google.maps.UnitSystem.METRIC
+                unitSystem: google.maps.UnitSystem.METRIC,
+                region: 'TR'
             }, (response, status) => {
-                console.log('Distance Matrix yanıtı:', status);
+                console.log('========== DISTANCE MATRIX YANITI ==========');
+                console.log('Status:', status);
+                console.log('Response:', response);
                 
-                if (status === 'OK') {
+                if (status === 'OK' && response.rows && response.rows.length > 0) {
                     const distances = response.rows[0].elements;
+                    
+                    console.log('Mesafeler hesaplandı:');
                     let minDistance = Infinity;
                     let closestIndex = 0;
+                    let validDistances = 0;
                     
-                    console.log('Mesafeler:');
                     distances.forEach((element, index) => {
+                        console.log(`  ${index + 1}. ${addresses[index]}`);
+                        console.log(`     Status: ${element.status}`);
+                        
                         if (element.status === 'OK') {
-                            console.log(`  ${index}. ${addresses[index]}: ${(element.distance.value/1000).toFixed(1)} km`);
+                            validDistances++;
+                            const distKm = (element.distance.value / 1000).toFixed(1);
+                            console.log(`     Mesafe: ${distKm} km`);
+                            
                             if (element.distance.value < minDistance) {
                                 minDistance = element.distance.value;
                                 closestIndex = index;
                             }
+                        } else {
+                            console.log(`     HATA: Mesafe hesaplanamadı`);
                         }
                     });
                     
-                    console.log(`En yakın durak: ${closestIndex}. ${addresses[closestIndex]} (${(minDistance/1000).toFixed(1)} km)`);
+                    if (validDistances === 0) {
+                        console.error('❌ Hiçbir adres için mesafe hesaplanamadı!');
+                        showCourierError('Mesafe hesaplanamadı. Operatör rotası gösteriliyor.');
+                        showManualRoute();
+                        return;
+                    }
+                    
+                    console.log(`✅ En yakın durak: ${closestIndex + 1}. ${addresses[closestIndex]} (${(minDistance/1000).toFixed(1)} km)`);
                     
                     // En yakın noktadan başlayacak şekilde yeniden sırala
                     const reordered = [];
@@ -672,8 +696,19 @@
                         }
                     });
                 } else {
-                    console.error('Distance Matrix hatası:', status);
-                    showCourierError('Mesafe hesaplanamadı.');
+                    console.error('❌ Distance Matrix API hatası:', status);
+                    console.error('Detay:', response);
+                    
+                    let errorMsg = 'Mesafe hesaplanamadı.';
+                    if (status === 'REQUEST_DENIED') {
+                        errorMsg = 'API key yetkisiz. Lütfen operatöre bildirin.';
+                    } else if (status === 'OVER_QUERY_LIMIT') {
+                        errorMsg = 'API kullanım limiti aşıldı.';
+                    } else if (status === 'ZERO_RESULTS') {
+                        errorMsg = 'Adresler bulunamadı.';
+                    }
+                    
+                    showCourierError(errorMsg + ' Operatör rotası gösteriliyor.');
                     showManualRoute();
                 }
             });
